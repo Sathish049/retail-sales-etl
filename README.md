@@ -82,16 +82,16 @@ etl_run_log                                       ← one row per run: counts, r
 ```
 
 ---
-   ## Screenshots
+## Screenshots
 
-   **DAG runs (Oct 1–26 backfill)**
-   ![Grid view](docs/images/Dag runs.png)
+**DAG runs (Oct 1–26 backfill)**
+![Grid view](docs/images/dag_runs.png)
 
-   **Pipeline graph**
-   ![DAG graph](docs/images/Pipeline graph.png)
+**Pipeline graph**
+![DAG graph](docs/images/pipeline_graph.png)
 
-   **Loaded data in Postgres**
-   ![Query result](docs/images/Loaded data in Postgres.png)
+**Loaded data in Postgres**
+![Query result](docs/images/loaded_data.png)
 
 ## 3. Project layout
 
