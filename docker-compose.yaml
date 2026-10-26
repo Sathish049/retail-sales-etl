@@ -1,0 +1,112 @@
+# Local Airflow 3 stack: LocalExecutor + 2 Postgres databases.
+#   airflow-db : Airflow's own metadata database (DAG runs, task states, XComs)
+#   retail-db  : the data warehouse our pipeline loads into
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    args:
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.0}
+  image: retail-etl-airflow:latest
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${JWT_SECRET:-change-me-local-dev-secret}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    # Local dev only: no login screen, everyone is admin.
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    # Airflow Connection defined as an env var: AIRFLOW_CONN_<CONN_ID>
+    AIRFLOW_CONN_RETAIL_DW: postgresql://retail:retail@retail-db:5432/retail_dw
+    # Airflow Variable defined as an env var: AIRFLOW_VAR_<KEY>
+    AIRFLOW_VAR_MAX_REJECT_RATE: "0.10"
+    RETAIL_DATA_DIR: /opt/airflow/data
+    PYTHONPATH: /opt/airflow/include
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./include:/opt/airflow/include
+    - ./data:/opt/airflow/data
+    - ./logs:/opt/airflow/logs
+    - ./tests:/opt/airflow/tests
+  depends_on: &airflow-depends
+    airflow-db:
+      condition: service_healthy
+    retail-db:
+      condition: service_healthy
+
+services:
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 10
+
+  retail-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: retail
+      POSTGRES_PASSWORD: retail
+      POSTGRES_DB: retail_dw
+    ports:
+      - "5433:5432"     # connect from your laptop: localhost:5433
+    volumes:
+      - retail-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "retail", "-d", "retail_dw"]
+      interval: 5s
+      retries: 10
+
+  airflow-init:
+    <<: *airflow-common
+    command: ["bash", "-c", "airflow db migrate && airflow version"]
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: always
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    restart: always
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  airflow-db-data:
+  retail-db-data:

@@ -1,0 +1,3 @@
+# Extra packages for the Airflow containers (pandas + psycopg2 already ship with the image)
+apache-airflow-providers-postgres
+apache-airflow-providers-common-sql

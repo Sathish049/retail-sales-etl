@@ -1,0 +1,9 @@
+.env
+logs/
+data/raw/*.csv
+data/staging/
+data/rejected/
+data/quarantine/
+data/reports/
+__pycache__/
+.pytest_cache/
