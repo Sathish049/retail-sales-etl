@@ -82,6 +82,16 @@ etl_run_log                                       ← one row per run: counts, r
 ```
 
 ---
+   ## Screenshots
+
+   **DAG runs (Oct 1–26 backfill)**
+   ![Grid view](docs/images/grid_view.png)
+
+   **Pipeline graph**
+   ![DAG graph](docs/images/dag_graph.png)
+
+   **Loaded data in Postgres**
+   ![Query result](docs/images/query_result.png)
 
 ## 3. Project layout
 
@@ -175,7 +185,7 @@ docker compose down -v     # wipe both databases
 
 ---
 
-## 5. Practice exercises (do these in the UI)
+## 5. Things to try 
 
 Each one shows a concept interviewers often ask about.
 
@@ -200,7 +210,7 @@ Each one shows a concept interviewers often ask about.
 
 ---
 
-## 6. Ideas to extend it (next level)
+## 6. Future improvements
 
 * Swap the CSV staging files for **Parquet**, and the local folder for **S3**
   (with `S3KeySensor` and `S3Hook`). MinIO gives you a free S3 inside Docker.
@@ -213,25 +223,4 @@ Each one shows a concept interviewers often ask about.
 
 ---
 
-## 7. Talking points for interviews
 
-* **Why Airflow, not cron?** Airflow gives you dependencies, retries,
-  backfills, a UI with logs, and alerting. Cron only gives you a timer.
-* **How do you make tasks idempotent?** Each day is a partition. The fact load
-  does DELETE + INSERT for that date in one transaction, and the dimensions use
-  UPSERT. So retries and backfills can never double count.
-* **What goes into XCom?** Only small metadata: file paths and row counts.
-  DataFrames stay on disk or in storage, because XComs live in the metadata DB.
-* **Why `mode="reschedule"`?** A poke-mode sensor holds a worker slot for the
-  whole wait. Reschedule mode releases the slot between checks.
-* **Why did `log_run` need a trigger rule?** After a branch, one path is always
-  skipped. The default `all_success` rule would then skip `log_run` too.
-* **How is the code tested?** The pandas rules are unit tested in isolation,
-  and a DagBag test checks that the DAGs import cleanly and are wired correctly.
-
-### Resume bullets
-
-- Built a daily batch ETL pipeline with **Apache Airflow 3**, **Python/pandas** and **PostgreSQL**, containerised with **Docker Compose**. It ingests POS sales files into a star-schema warehouse (fact table, 2 dimensions, aggregate).
-- Implemented 8 data-quality rules with reject-reason auditing, deduplication and a **branching quality gate** that quarantines batches above a configurable reject-rate threshold.
-- Designed **idempotent loads** (partition DELETE + INSERT, dimension UPSERTs) so retries and **14-day catchup backfills** never duplicate data. Added sensors, retries with exponential backoff, failure callbacks and run-level metrics logging.
-- Used **data-aware scheduling (Assets)** to trigger a downstream reporting DAG, and covered the transform logic and DAG structure with **pytest**.
